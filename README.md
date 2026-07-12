@@ -18,6 +18,19 @@ python main.py
 
 Open **http://localhost:8081** in your browser for the live dashboard.
 
+## Auto-start on Windows
+
+```powershell
+# 1. Right-click scripts/run_hide.vbs → Create shortcut
+# 2. Win+R → shell:startup → paste the shortcut there
+```
+
+On next login the service starts silently. To stop:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/stop_service.ps1
+```
+
 ## Features
 
 | Feature | Description |
