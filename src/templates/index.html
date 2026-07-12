@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WiFi Scout — Device Monitor</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', system-ui, sans-serif;
+               background: #0f172a; color: #e2e8f0; padding: 24px; }
+        .header { display: flex; justify-content: space-between;
+                  align-items: center; margin-bottom: 20px; }
+        h1 { font-size: 22px; color: #38bdf8; }
+        .meta { display: flex; gap: 24px; color: #94a3b8; font-size: 13px;
+                margin-bottom: 16px; }
+        .meta span strong { color: #e2e8f0; }
+        .timer { color: #facc15; font-size: 13px; }
+        table { width: 100%; border-collapse: collapse; }
+        th { text-align: left; padding: 10px 12px; border-bottom: 1px solid #334155;
+             color: #64748b; font-size: 12px; text-transform: uppercase; }
+        td { padding: 10px 12px; border-bottom: 1px solid #1e293b; font-size: 14px; }
+        tr:hover { background: #1e293b; }
+        .tag { display: inline-block; padding: 2px 8px; border-radius: 4px;
+               font-size: 11px; }
+        .tag-hw { background: #065f46; color: #6ee7b7; }
+        .tag-rand { background: #7c2d12; color: #fca5a5; }
+        .new-badge { background: #38bdf8; color: #0f172a; font-size: 10px;
+                     padding: 1px 6px; border-radius: 8px; margin-left: 6px; }
+        .empty { text-align: center; padding: 48px; color: #475569; }
+        .spinner { display: inline-block; width: 14px; height: 14px;
+                   border: 2px solid #334155; border-top-color: #38bdf8;
+                   border-radius: 50%; animation: spin .6s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .alert-panel {
+            background: #1e293b; border-radius: 8px; padding: 16px;
+            margin-top: 24px; font-size: 13px;
+        }
+        .alert-panel h3 { color: #f87171; margin-bottom: 8px; font-size: 14px; }
+        .alert-panel ul { padding-left: 20px; }
+        .alert-panel li { margin: 4px 0; color: #94a3b8; }
+        .alert-panel code { color: #facc15; background: #0f172a;
+                           padding: 1px 5px; border-radius: 3px; }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <h1>WiFi Scout</h1>
+    <span class="timer" id="countdown">refresh in 45s</span>
+</div>
+
+<div class="meta" id="meta"></div>
+
+<table id="table-wrap" style="display:none;">
+    <thead>
+        <tr>
+            <th>IP</th>
+            <th>MAC</th>
+            <th>Type</th>
+            <th>Classification</th>
+            <th>First Seen</th>
+            <th>Duration</th>
+            <th>#</th>
+        </tr>
+    </thead>
+    <tbody id="tbody"></tbody>
+</table>
+
+<div class="empty" id="empty" style="display:none;">
+    <div class="spinner" id="spinner"></div>
+    <p id="empty-msg">Scanning...</p>
+</div>
+
+<div class="alert-panel" id="alert-info" style="display:none;">
+    <h3>Alert Status</h3>
+    <ul></ul>
+</div>
+
+<script>
+const API = '/api/devices';
+const INTERVAL = 45;
+let countdown = INTERVAL;
+let timer = null;
+
+async function fetchDevices() {
+    document.getElementById('spinner').style.display = 'inline-block';
+    document.getElementById('empty-msg').textContent = 'Scanning network...';
+    document.getElementById('empty').style.display = 'block';
+    try {
+        const res = await fetch(API);
+        const data = await res.json();
+        render(data);
+    } catch (e) {
+        document.getElementById('empty-msg').textContent = 'Error: ' + e.message;
+    }
+    document.getElementById('empty').style.display = 'none';
+}
+
+function render(data) {
+    // Meta
+    const meta = document.getElementById('meta');
+    meta.innerHTML = `
+        <span>Network: <strong>${data.network}</strong></span>
+        <span>Router: <strong>${data.router || 'unknown'}</strong></span>
+        <span>WiFi Stations: <strong>${data.wifi_stations ?? '-'}</strong></span>
+        <span>Devices: <strong>${data.device_count}</strong></span>
+        <span>Scan: <strong>${new Date(data.timestamp).toLocaleTimeString()}</strong></span>
+    `;
+
+    // Table
+    const tbody = document.getElementById('tbody');
+    if (data.devices.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="empty">No devices found</td></tr>';
+        document.getElementById('table-wrap').style.display = 'table';
+        return;
+    }
+    tbody.innerHTML = data.devices.map(d => {
+        const cls = d.classification.includes('[randomized]') ? 'tag-rand' : 'tag-hw';
+        const isNew = d.seen_count === 1;
+        const dur = d.duration_seconds != null
+            ? formatDuration(d.duration_seconds) : '-';
+        return `<tr>
+            <td>${d.ip}</td>
+            <td>${d.mac}${isNew ? '<span class="new-badge">NEW</span>' : ''}</td>
+            <td>${d.type}</td>
+            <td><span class="tag ${cls}">${d.classification}</span></td>
+            <td>${d.first_seen ? new Date(d.first_seen).toLocaleTimeString() : '-'}</td>
+            <td>${dur}</td>
+            <td>${d.seen_count}</td>
+        </tr>`;
+    }).join('');
+    document.getElementById('table-wrap').style.display = 'table';
+
+    // Alert info
+    const alertDiv = document.getElementById('alert-info');
+    if (data.wifi_stations && data.device_count < data.wifi_stations) {
+        const hidden = data.wifi_stations - data.device_count;
+        alertDiv.style.display = 'block';
+        alertDiv.querySelector('ul').innerHTML = `
+            <li>BSS reports <strong>${data.wifi_stations}</strong> connected
+                stations, but ARP only sees <strong>${data.device_count}</strong></li>
+            <li>Router may have <strong>AP isolation</strong> enabled —
+                ${hidden} device(s) hidden</li>
+            <li>Check router admin panel for full device list</li>
+        `;
+    } else {
+        alertDiv.style.display = 'none';
+    }
+}
+
+function formatDuration(sec) {
+    if (sec < 60) return Math.round(sec) + 's';
+    if (sec < 3600) return Math.floor(sec / 60) + 'm ' + Math.round(sec % 60) + 's';
+    const h = Math.floor(sec / 3600);
+    const m = Math.floor((sec % 3600) / 60);
+    return h + 'h ' + m + 'm';
+}
+
+function startTimer() {
+    countdown = INTERVAL;
+    document.getElementById('countdown').textContent = `refresh in ${countdown}s`;
+    timer = setInterval(() => {
+        countdown--;
+        document.getElementById('countdown').textContent = `refresh in ${countdown}s`;
+        if (countdown <= 0) {
+            fetchDevices();
+            countdown = INTERVAL;
+        }
+    }, 1000);
+}
+
+fetchDevices();
+startTimer();
+</script>
+</body>
+</html>

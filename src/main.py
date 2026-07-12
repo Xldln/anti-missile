@@ -1,7 +1,8 @@
 from typing import Union
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi import FastAPI,Request
-from api import * 
+from api import *
+from services.alert_service import start_alert_service
 import uvicorn
 import logging
 from loguru import logger
@@ -68,7 +69,8 @@ logger.info("日志系统初始化完成")
 
 
 app = FastAPI()
-#app.include_router(ship_router)
+app.include_router(wifi_scout_router)
+start_alert_service(app)
 
 origins = [
     "http://127.0.0.1",
@@ -83,7 +85,7 @@ app.add_middleware(
     allow_headers=["*"],            # 允许的请求头
 )
 
-templates = Jinja2Templates(directory="app/templates")
+templates = Jinja2Templates(directory="templates")
 
 @app.get("/")
 async def index(request: Request):
