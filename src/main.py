@@ -92,7 +92,7 @@ async def index(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
 
 if __name__ == "__main__":
-    logger.info("启动 FastAPI 服务...")
+    logger.info("start services ...")
     uvicorn.run(app, host="0.0.0.0", port=8081,
                 log_config=None,     
                 access_log=False

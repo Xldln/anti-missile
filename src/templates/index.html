@@ -6,41 +6,79 @@
     <title>WiFi Scout — Device Monitor</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Segoe UI', system-ui, sans-serif;
-               background: #0f172a; color: #e2e8f0; padding: 24px; }
+        body { font-family: 'Segoe UI', system-ui, sans-serif; color: #1a1a2e;
+               min-height: 100vh; padding: 24px;
+               background: linear-gradient(180deg,
+                   #7f7fd5 0%, #86a8e7 50%, #91eae4 100%);
+        }
         .header { display: flex; justify-content: space-between;
-                  align-items: center; margin-bottom: 20px; }
-        h1 { font-size: 22px; color: #38bdf8; }
-        .meta { display: flex; gap: 24px; color: #94a3b8; font-size: 13px;
-                margin-bottom: 16px; }
-        .meta span strong { color: #e2e8f0; }
-        .timer { color: #facc15; font-size: 13px; }
-        table { width: 100%; border-collapse: collapse; }
-        th { text-align: left; padding: 10px 12px; border-bottom: 1px solid #334155;
-             color: #64748b; font-size: 12px; text-transform: uppercase; }
-        td { padding: 10px 12px; border-bottom: 1px solid #1e293b; font-size: 14px; }
-        tr:hover { background: #1e293b; }
-        .tag { display: inline-block; padding: 2px 8px; border-radius: 4px;
-               font-size: 11px; }
-        .tag-hw { background: #065f46; color: #6ee7b7; }
-        .tag-rand { background: #7c2d12; color: #fca5a5; }
-        .new-badge { background: #38bdf8; color: #0f172a; font-size: 10px;
-                     padding: 1px 6px; border-radius: 8px; margin-left: 6px; }
-        .empty { text-align: center; padding: 48px; color: #475569; }
+                  align-items: center; margin-bottom: 20px;
+                  background: rgba(255,255,255,0.25);
+                  backdrop-filter: blur(12px); border-radius: 14px;
+                  padding: 16px 24px; }
+        h1 { font-size: 22px; color: #1a1a2e;
+             text-shadow: 0 1px 2px rgba(255,255,255,0.3); }
+        .meta { display: flex; gap: 24px; color: rgba(0,0,0,0.6);
+                font-size: 13px; margin-bottom: 16px;
+                background: rgba(255,255,255,0.25);
+                backdrop-filter: blur(8px); border-radius: 10px;
+                padding: 10px 16px; flex-wrap: wrap; }
+        .meta span strong { color: #1a1a2e; }
+        .timer { color: #1a1a2e; font-size: 13px;
+                 background: rgba(255,255,255,0.3); border-radius: 8px;
+                 padding: 4px 12px; }
+        table { width: 100%; border-collapse: separate; border-spacing: 0;
+                background: rgba(255,255,255,0.25);
+                backdrop-filter: blur(10px); border-radius: 14px;
+                overflow: hidden; }
+        th { text-align: left; padding: 12px 14px;
+             background: rgba(255,255,255,0.3);
+             color: rgba(0,0,0,0.55); font-size: 12px;
+             text-transform: uppercase; font-weight: 700; }
+        td { padding: 12px 14px; border-bottom: 1px solid rgba(0,0,0,0.06);
+             font-size: 14px; color: #1a1a2e; }
+        tr:last-child td { border-bottom: none; }
+        tr:hover { background: rgba(255,255,255,0.2); }
+        .tag { display: inline-block; padding: 3px 10px; border-radius: 20px;
+               font-size: 11px; font-weight: 700; }
+        .tag-hw { background: rgba(6,95,70,0.15); color: #065f46; }
+        .tag-rand { background: rgba(180,40,20,0.15); color: #b42814; }
+        .new-badge { background: rgba(91,95,199,0.2); color: #5b5fc7;
+                     font-size: 10px; padding: 1px 8px; border-radius: 10px;
+                     margin-left: 6px; font-weight: 700; }
+        .empty { text-align: center; padding: 48px; color: rgba(0,0,0,0.35); }
         .spinner { display: inline-block; width: 14px; height: 14px;
-                   border: 2px solid #334155; border-top-color: #38bdf8;
-                   border-radius: 50%; animation: spin .6s linear infinite; }
+                   border: 2px solid rgba(0,0,0,0.15);
+                   border-top-color: #1a1a2e; border-radius: 50%;
+                   animation: spin .6s linear infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
+        .target-bar { display: flex; align-items: center; gap: 10px;
+                      background: rgba(255,255,255,0.25);
+                      backdrop-filter: blur(10px); border-radius: 12px;
+                      padding: 12px 18px; margin-bottom: 16px; font-size: 13px; }
+        .target-bar label { color: rgba(0,0,0,0.55); white-space: nowrap; }
+        .target-bar select { background: rgba(255,255,255,0.4); color: #1a1a2e;
+                             border: 1px solid rgba(0,0,0,0.1);
+                             padding: 6px 10px; border-radius: 8px; flex: 1;
+                             max-width: 280px; }
+        .target-bar button { background: rgba(91,95,199,0.25); color: #1a1a2e;
+                             border: none; padding: 6px 16px; border-radius: 8px;
+                             cursor: pointer; font-weight: 700;
+                             transition: background .2s; }
+        .target-bar button:hover { background: rgba(91,95,199,0.4); }
+        #target-status { color: #1a1a2e; font-weight: 600; }
 
         .alert-panel {
-            background: #1e293b; border-radius: 8px; padding: 16px;
+            background: rgba(220,80,80,0.15); border: 1px solid rgba(180,40,20,0.2);
+            backdrop-filter: blur(10px); border-radius: 14px; padding: 16px 20px;
             margin-top: 24px; font-size: 13px;
         }
-        .alert-panel h3 { color: #f87171; margin-bottom: 8px; font-size: 14px; }
+        .alert-panel h3 { color: #b42814; margin-bottom: 8px; font-size: 14px; }
         .alert-panel ul { padding-left: 20px; }
-        .alert-panel li { margin: 4px 0; color: #94a3b8; }
-        .alert-panel code { color: #facc15; background: #0f172a;
-                           padding: 1px 5px; border-radius: 3px; }
+        .alert-panel li { margin: 4px 0; color: rgba(0,0,0,0.6); }
+        .alert-panel code { color: #1a1a2e; background: rgba(255,255,255,0.4);
+                           padding: 1px 6px; border-radius: 4px; }
+        select option { background: #e8e8f8; color: #1a1a2e; }
     </style>
 </head>
 <body>
@@ -51,6 +89,15 @@
 </div>
 
 <div class="meta" id="meta"></div>
+
+<div class="target-bar" id="target-bar" style="display:none;">
+    <label>Alert Target:</label>
+    <select id="target-select">
+        <option value="">-- select MAC --</option>
+    </select>
+    <button id="target-set-btn">Set</button>
+    <span id="target-status"></span>
+</div>
 
 <table id="table-wrap" style="display:none;">
     <thead>
@@ -107,6 +154,32 @@ function render(data) {
         <span>Devices: <strong>${data.device_count}</strong></span>
         <span>Scan: <strong>${new Date(data.timestamp).toLocaleTimeString()}</strong></span>
     `;
+
+    // Target bar
+    document.getElementById('target-bar').style.display = 'flex';
+    const select = document.getElementById('target-select');
+    select.innerHTML = '<option value="">-- select MAC --</option>' +
+        data.devices.map(d =>
+            `<option value="${d.mac}">${d.mac} — ${d.ip} — ${d.classification}</option>`
+        ).join('');
+    if (data.target_mac) {
+        select.value = data.target_mac;
+    }
+
+    document.getElementById('target-set-btn').onclick = async () => {
+        const mac = select.value;
+        const status = document.getElementById('target-status');
+        const res = await fetch('/api/target', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ mac }),
+        });
+        const result = await res.json();
+        if (result.status === 'ok') {
+            status.textContent = mac ? 'Tracking: ' + mac : 'Tracking disabled';
+            status.style.color = '#4ade80';
+        }
+    };
 
     // Table
     const tbody = document.getElementById('tbody');

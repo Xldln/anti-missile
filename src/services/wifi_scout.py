@@ -2,6 +2,8 @@
 WiFi 设备扫描 API — FastAPI Router。
 
 GET  /api/devices   扫描局域网设备，返回 MAC / IP / 类型 / 存活时长
+GET  /api/target    获取当前追踪的 target-mac
+POST /api/target    设置运行时 target-mac（不写入 config.yaml）
 """
 
 import sys
@@ -10,9 +12,12 @@ from datetime import datetime, timezone
 from collections import defaultdict
 from typing import Optional, List, Dict
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, Body
 from pydantic import BaseModel
 import ipaddress
+
+# 运行时 target-mac（优先于 config.yaml）
+_runtime_target: Optional[str] = None
 
 # 导入 scripts/ 下的扫描核心函数
 _scripts = Path(__file__).resolve().parent.parent.parent / "scripts"
@@ -75,7 +80,12 @@ class ScanResponse(BaseModel):
     router: Optional[str] = None
     wifi_stations: Optional[int] = None
     device_count: int
+    target_mac: Optional[str] = None
     devices: List[DeviceInfo]
+
+
+class TargetRequest(BaseModel):
+    mac: str
 
 
 # ---------- Endpoints ----------
@@ -124,5 +134,31 @@ def get_devices(
         router=router_model,
         wifi_stations=sta_count,
         device_count=len(devices),
+        target_mac=_effective_target(),
         devices=devices,
     )
+
+
+def _effective_target() -> Optional[str]:
+    if _runtime_target:
+        return _runtime_target
+    cfg_path = Path(__file__).resolve().parent.parent / "config.yaml"
+    try:
+        import yaml
+        with open(cfg_path, "r", encoding="utf-8") as f:
+            config = yaml.safe_load(f)
+        return config.get("target-mac", "").strip().upper() or None
+    except Exception:
+        return None
+
+
+@router.get("/target")
+def get_target():
+    return {"target_mac": _effective_target()}
+
+
+@router.post("/target")
+def set_target(body: TargetRequest):
+    global _runtime_target
+    _runtime_target = body.mac.strip().upper() if body.mac.strip() else None
+    return {"target_mac": _runtime_target, "status": "ok"}

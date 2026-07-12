@@ -14,6 +14,7 @@ logger = logging.getLogger(__name__)
 _last_alert: dict = {}
 _previous_macs: Set[str] = set()
 _target_present: bool = False
+_just_quit: bool = False
 
 _fastapi_app = None
 
@@ -53,6 +54,9 @@ async def _scan_loop():
     """后台循环：定时扫描 + 检测 target-mac 入网。"""
     config = _load_config()
     target_mac = config.get("target-mac", "").strip().upper()
+    from .wifi_scout import _runtime_target
+    if _runtime_target:
+        target_mac = _runtime_target
     if not target_mac:
         logger.warning("[Alert] target-mac not configured, alert disabled")
         return
@@ -80,7 +84,7 @@ async def _scan_loop():
             timezone(timedelta(hours=8))
         ).strftime("%Y-%m-%d %H:%M:%S")
 
-    global _previous_macs, _target_present
+    global _previous_macs, _target_present, _just_quit
 
     while True:
         try:
@@ -95,7 +99,7 @@ async def _scan_loop():
                 dev = next(d for d in devices if d["mac"] == target_mac)
                 first = dev.get("first_seen")
                 if first and (now - first).total_seconds() <= alert_window * 60:
-                    if _check_cooldown(target_mac, now, cooldown_min):
+                    if _just_quit or _check_cooldown(target_mac, now, cooldown_min):
                         subject = f"[WiFi Alert] {target_mac} device connected"
                         body = (
                             f"{target_mac} device access wifi in "
@@ -104,16 +108,20 @@ async def _scan_loop():
                             f"Type: {dev['classification']}\n"
                         )
                         _send(subject, body, target_mac, now)
+                        _just_quit = False
 
-            # --- 离网检测 ---
+            # --- 离网检测（不受 cooldown 限制）---
             if _target_present and not target_found:
-                if _check_cooldown(target_mac, now, cooldown_min):
-                    subject = f"[WiFi Alert] {target_mac} device quit"
-                    body = (
-                        f"{target_mac} device quit wifi in "
-                        f"{_time_str(now)}\n"
-                    )
-                    _send(subject, body, target_mac, now)
+                subject = f"[WiFi Alert] {target_mac} device quit"
+                body = (
+                    f"{target_mac} device quit wifi in "
+                    f"{_time_str(now)}\n"
+                )
+                _send(subject, body, target_mac, now)
+                _just_quit = True
+                # 清理追踪数据，下次接入视为新连接
+                from .wifi_scout import _history
+                _history.pop(target_mac, None)
 
             _target_present = target_found
             _previous_macs = current_macs
